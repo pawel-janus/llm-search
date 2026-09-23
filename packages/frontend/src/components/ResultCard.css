@@ -1,0 +1,79 @@
+.result-card {
+  padding: 1.25rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.result-card:hover {
+  border-color: #4a90e2;
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.1);
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.result-company {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.result-ticker {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #4a90e2;
+  letter-spacing: 0.5px;
+}
+
+.result-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.result-similarity {
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.result-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.result-metric {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.result-tag {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.result-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+.result-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8125rem;
+  color: #999;
+}
+
+.result-period {
+  font-weight: 500;
+}
