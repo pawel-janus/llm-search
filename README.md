@@ -6,12 +6,14 @@ Semantic search over SEC quarterly filings using Vertex AI embeddings and Firest
 
 ## Features
 
-- ✅ Vertex AI Text Embeddings API (768D vectors)
-- ✅ BigQuery data loading (1000 SEC quarterly filings)
-- ✅ Firestore vector search (cosine similarity)
-- ✅ Semantic search API (Fastify)
-- ✅ React UI (search + results list)
-- ✅ Cloud Run deployment
+- ✅ **Backend API** (Fastify with mock data)
+- 🚧 Vertex AI Text Embeddings API (768D vectors) - TODO
+- 🚧 BigQuery data loading (1000 SEC quarterly filings) - TODO
+- 🚧 Firestore vector search (cosine similarity) - TODO
+- 🚧 React UI (search + results list) - TODO
+- 🚧 Cloud Run deployment - TODO
+
+**Status:** Backend with mock search working, frontend + real data integration next.
 
 ## Tech Stack
 
@@ -58,15 +60,29 @@ Example evolution:
 # Install dependencies (all workspaces)
 npm install
 
-# Build shared package
+# Build shared package (required before running backend/frontend)
 npm run build:shared
 
-# Run backend (dev mode)
+# Run backend (dev mode, port 3001)
 npm run dev:backend
 
-# Run frontend (dev mode)
+# Run frontend (dev mode, port 5173) - TODO
 npm run dev:frontend
 ```
+
+**Test backend:**
+
+```bash
+# Health check
+curl http://localhost:3001/health
+
+# Search test
+curl -X POST http://localhost:3001/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Apple revenue 2024"}'
+```
+
+**Current implementation:** Mock search with keyword matching (16 mock SEC filings)
 
 ## Deploy to Cloud Run
 
