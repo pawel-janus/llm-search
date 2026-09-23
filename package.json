@@ -1,0 +1,20 @@
+{
+  "name": "llm-search",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LLM Search - semantic search over SEC filings with Vertex AI embeddings",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=packages/backend",
+    "dev:frontend": "npm run dev --workspace=packages/frontend",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "build:backend": "npm run build --workspace=packages/backend",
+    "build:frontend": "npm run build --workspace=packages/frontend",
+    "build": "npm run build:shared && npm run build:backend && npm run build:frontend"
+  },
+  "keywords": ["llm", "embeddings", "vector-search", "rag", "vertex-ai"],
+  "author": "Paweł Janus <paweljanus.dev@gmail.com>",
+  "license": "MIT"
+}
