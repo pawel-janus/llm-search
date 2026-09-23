@@ -109,9 +109,11 @@ gcloud run deploy ${SERVICE_NAME} \
   --cpu=1
 ```
 
-## Live Demo
+## Deployment
 
-[Coming soon - deployed after implementation]
+Deployed to Cloud Run for testing and portfolio demonstration.
+
+**Note:** Deployment URL not published (POC uses `--allow-unauthenticated` with no rate limiting). Available on request for interviews.
 
 ## What's Next
 
