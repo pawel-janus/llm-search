@@ -1,7 +1,13 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { SearchRequestSchema, SearchResponseSchema, type SearchRequest } from '@llm-search/shared';
 import { searchFilings } from './search/mockSearch.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = Fastify({
   logger: {
@@ -57,6 +63,27 @@ app.post<{ Body: SearchRequest }>('/api/search', async (request, reply) => {
       statusCode: 500,
     });
   }
+});
+
+// Serve frontend static files (production only, dev uses Vite dev server)
+const frontendDistPath = path.join(__dirname, '../../frontend/dist');
+
+await app.register(fastifyStatic, {
+  root: frontendDistPath,
+  prefix: '/',
+  // Wildcard route - serve index.html for all non-API routes (SPA routing)
+  wildcard: false,
+});
+
+// SPA fallback - serve index.html for all non-API routes
+app.setNotFoundHandler(async (request, reply) => {
+  // If request is for API, return 404 JSON
+  if (request.url.startsWith('/api') || request.url.startsWith('/health')) {
+    return reply.code(404).send({ error: 'Not found', statusCode: 404 });
+  }
+
+  // Otherwise serve index.html (SPA routing)
+  return reply.sendFile('index.html');
 });
 
 // Start server

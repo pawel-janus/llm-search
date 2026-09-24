@@ -8,12 +8,12 @@ Semantic search over SEC quarterly filings using Vertex AI embeddings and Firest
 
 - ✅ **Backend API** (Fastify with mock data)
 - ✅ **Frontend UI** (React + Vite)
+- ✅ **Cloud Run deployment** (serverless, auto-scaling)
 - 🚧 Vertex AI Text Embeddings API (768D vectors) - TODO
 - 🚧 BigQuery data loading (1000 SEC quarterly filings) - TODO
 - 🚧 Firestore vector search (cosine similarity) - TODO
-- 🚧 Cloud Run deployment - TODO
 
-**Status:** Full-stack working with mock data. Next: Firestore + BigQuery integration.
+**Status:** Full-stack deployed with mock data. Next: Firestore + Vertex AI integration.
 
 ## Tech Stack
 
@@ -33,10 +33,15 @@ Semantic search over SEC quarterly filings using Vertex AI embeddings and Firest
 llm-search/
 ├── packages/
 │   ├── shared/          # Zod schemas, shared types
-│   ├── backend/         # Fastify API
+│   ├── backend/         # Fastify API + serves frontend static files
 │   └── frontend/        # React + Vite
 └── package.json         # Workspace root
 ```
+
+**Production deployment:**
+- Backend (Fastify) serves both API (`/api/*`) and frontend static files (`/`)
+- Single Cloud Run service (one container, one URL)
+- Frontend built with Vite → static files served by `@fastify/static`
 
 ## API Design
 
@@ -53,6 +58,46 @@ Example evolution:
 - POC #1: `{ query: "Apple revenue" }`
 - POC #2: `{ query: "...", model: "gemini-2.0-flash", temperature: 0.7 }`
 - POC #5: `{ query: "...", filters: {...}, rerank: true, limit: 10 }`
+
+## Prerequisites
+
+### GCP APIs Required
+
+Enable the following APIs in your GCP project:
+
+```bash
+gcloud services enable \
+  run.googleapis.com \
+  cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com \
+  aiplatform.googleapis.com \
+  firestore.googleapis.com \
+  bigquery.googleapis.com \
+  --account=YOUR_ACCOUNT@gmail.com \
+  --project=YOUR_PROJECT_ID
+```
+
+**Required APIs:**
+- **Cloud Run** - Serverless container deployment
+- **Cloud Build** - Docker image building
+- **Artifact Registry** - Container image storage
+- **Vertex AI** - Text embeddings API (text-embedding-004)
+- **Firestore** - Vector search database
+- **BigQuery** - SEC filings data source
+
+### Local Authentication
+
+For local development (connect to GCP services from localhost):
+
+```bash
+# Application Default Credentials
+gcloud auth application-default login --account=YOUR_ACCOUNT@gmail.com
+
+# Set project (or add to .env file)
+export GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID
+```
+
+**Note:** Production (Cloud Run) uses Service Account authentication automatically.
 
 ## Local Development
 
@@ -94,26 +139,42 @@ Open http://localhost:5173 in browser and try:
 ## Deploy to Cloud Run
 
 ```bash
-# Build + deploy
-PROJECT_ID=native-dev-506112
-REGION=europe-central2
+# Configure deployment variables
+PROJECT_ID=YOUR_PROJECT_ID
+REGION=YOUR_REGION              # e.g., europe-central2
+ACCOUNT=YOUR_ACCOUNT@gmail.com
+REPOSITORY=YOUR_REPOSITORY      # Artifact Registry repo, e.g., gcp-apps
 SERVICE_NAME=llm-search
 
+# Build Docker image
 gcloud builds submit \
-  --account=paweljanus.gcp@gmail.com \
+  --account=${ACCOUNT} \
   --project=${PROJECT_ID} \
-  --tag ${REGION}-docker.pkg.dev/${PROJECT_ID}/gcp-apps/${SERVICE_NAME}:latest
+  --tag ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${SERVICE_NAME}:latest
 
+# Deploy to Cloud Run
 gcloud run deploy ${SERVICE_NAME} \
-  --account=paweljanus.gcp@gmail.com \
+  --account=${ACCOUNT} \
   --project=${PROJECT_ID} \
-  --image=${REGION}-docker.pkg.dev/${PROJECT_ID}/gcp-apps/${SERVICE_NAME}:latest \
+  --image=${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${SERVICE_NAME}:latest \
   --platform=managed \
   --region=${REGION} \
   --allow-unauthenticated \
   --port=3001 \
   --memory=512Mi \
-  --cpu=1
+  --cpu=1 \
+  --min-instances=0 \
+  --max-instances=10
+```
+
+**Note:** Create Artifact Registry repository first if it doesn't exist:
+
+```bash
+gcloud artifacts repositories create ${REPOSITORY} \
+  --repository-format=docker \
+  --location=${REGION} \
+  --account=${ACCOUNT} \
+  --project=${PROJECT_ID}
 ```
 
 ## Deployment

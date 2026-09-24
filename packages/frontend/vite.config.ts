@@ -12,4 +12,10 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // Ensure Vite finds the entry point correctly
+    rollupOptions: {
+      input: './index.html',
+    },
+  },
 });
