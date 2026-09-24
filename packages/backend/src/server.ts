@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { SearchRequestSchema, SearchResponseSchema } from '@llm-search/shared';
+import { SearchRequestSchema, SearchResponseSchema, type SearchRequest } from '@llm-search/shared';
 import { searchFilings } from './search/mockSearch.js';
 
 const app = Fastify({
@@ -20,7 +20,7 @@ app.get('/health', async () => {
 });
 
 // Search endpoint
-app.post<{ Body: unknown }>('/api/search', async (request, reply) => {
+app.post<{ Body: SearchRequest }>('/api/search', async (request, reply) => {
   const startTime = Date.now();
 
   // Validate request with Zod
