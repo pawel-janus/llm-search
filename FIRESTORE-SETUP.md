@@ -9,20 +9,20 @@
 ```bash
 # Enable Firestore API
 gcloud services enable firestore.googleapis.com \
-  --account=paweljanus.gcp@gmail.com \
-  --project=native-dev-506112
+  --account=YOUR_ACCOUNT@gmail.com \
+  --project=YOUR_PROJECT_ID
 
 # Create database
 gcloud firestore databases create \
   --database=llm-pocs \
   --location=europe-central2 \
-  --account=paweljanus.gcp@gmail.com \
-  --project=native-dev-506112
+  --account=YOUR_ACCOUNT@gmail.com \
+  --project=YOUR_PROJECT_ID
 
 # Verify (should show llm-pocs database)
 gcloud firestore databases list \
-  --account=paweljanus.gcp@gmail.com \
-  --project=native-dev-506112
+  --account=YOUR_ACCOUNT@gmail.com \
+  --project=YOUR_PROJECT_ID
 ```
 
 **Note:** Separate from other project databases (e.g., `functions-firestore-auth`).
@@ -51,8 +51,8 @@ node dist/scripts/setup-firestore.js
 **What this does:**
 - ⚠️ **DELETES ALL** existing filings from Firestore
 - Loads 275 SEC filings from BigQuery (full query)
-- Generates mock 768D embeddings for each filing
-- Stores to Firestore collection `llm-search-sec-filings`
+- Generates Vertex AI 768D embeddings for each filing (text-embedding-004)
+- Stores to Firestore collection `llm-search-sec-filings` using `FieldValue.vector()`
 
 **Cost:** ~$0.007 (275 texts × $0.025/1000 Vertex AI)  
 **Time:** ~5-10 minutes
@@ -68,10 +68,13 @@ node dist/scripts/setup-firestore.js
 [2/5] Firestore is empty (first time setup)
 [3/5] Loading filings from BigQuery...
 ✅ Loaded 275 filings in 1748ms
-[4/5] Generating mock embeddings (768D)...
-✅ Generated 275 embeddings in 124ms
+[4/5] Generating Vertex AI embeddings (768D)...
+[VertexAI] Embedding 275 texts in batches of 5...
+[VertexAI] Progress: 5/275 (1062ms for 5 texts)
+...
+✅ Generated 275 embeddings in 33219ms
 [5/5] Storing to Firestore...
-✅ Stored in 3421ms
+✅ Stored in 29650ms
 
 ╔════════════════════════════════════════════════════════╗
 ║  ✅ FULL REFRESH COMPLETE                              ║
@@ -145,7 +148,7 @@ Firestore requires a vector index to perform `findNearest()` queries.
 ### Option A: Firebase Console (Web UI)
 
 1. Go to: https://console.firebase.google.com
-2. Select project: `native-dev-506112` (or your project)
+2. Select project: `YOUR_PROJECT_ID`
 3. Navigate to: **Firestore Database** → **Indexes** tab
 4. Click **Create Index**
 5. Configure:
@@ -181,7 +184,7 @@ npm install -g firebase-tools
 firebase login
 
 # Deploy index
-firebase deploy --only firestore:indexes --project native-dev-506112
+firebase deploy --only firestore:indexes --project YOUR_PROJECT_ID
 ```
 
 ## Step 3: Verify Index
@@ -240,9 +243,55 @@ curl -X POST http://localhost:3001/api/search \
 }
 ```
 
-**Note:** With mock embeddings, similarity scores are based on text hash similarity (not semantic). Replace with real Vertex AI embeddings for production-quality results.
+**Expected results:**
+```json
+{
+  "query": "Apple revenue",
+  "results": [
+    {
+      "ticker": "AAPL",
+      "tag": "NetIncomeLoss",
+      "similarity": 0.835
+    }
+    // ... 4 more results
+  ],
+  "count": 5,
+  "latency_ms": 1100
+}
+```
+
+Similarity scores 0.82-0.85 indicate strong semantic matches.
 
 ## Troubleshooting
+
+### ⚠️ CRITICAL: Vector search returns 0 results
+
+**Problem:** Embeddings stored as regular arrays instead of vector type.
+
+**Symptoms:**
+- Query executes without error
+- Returns 0 results even with exact match
+- Firebase Console shows `embedding: (array)` instead of `embedding: vector<768> (vector)`
+
+**Root cause:** 
+```typescript
+// WRONG - will NOT be indexed:
+batch.set(docRef, { embedding: [0.1, 0.2, ...] });
+
+// CORRECT - will be indexed:
+batch.set(docRef, { 
+  embedding: admin.firestore.FieldValue.vector([0.1, 0.2, ...]) 
+});
+```
+
+**Solution:**
+1. Update code to use `FieldValue.vector()` wrapper
+2. Re-run `setup-firestore.js` to reload data with correct type
+3. Verify in Firebase Console: should show `vector<768> (vector)`
+
+**This is the #1 cause of vector search failures in Firestore.**
+
+---
 
 ### Error: "5 NOT_FOUND" or "Collection not found"
 
@@ -286,21 +335,35 @@ npm install firebase-admin@latest --workspace=packages/backend
 npm run build:backend
 ```
 
-## Next Steps
+## Validation
 
-After Firestore vector search works with mock embeddings:
+**Test semantic search quality:**
 
-1. **Replace mock embeddings with Vertex AI:**
-   - Update `setup-firestore.ts` to use `embedText()` from `vertexEmbeddings.ts`
-   - Re-run setup script
-   - Cost: ~$0.007 (275 texts × $0.025/1000)
+```bash
+# Test 1: Company name matching
+curl -X POST http://localhost:3001/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Apple revenue"}'
+# Expected: AAPL results, similarity 0.82-0.85
 
-2. **Update search endpoint:**
-   - Replace `generateMockEmbedding(query)` with `embedText(query)` in `firestoreSearch.ts`
+# Test 2: Synonym matching
+curl -X POST http://localhost:3001/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Microsoft earnings"}'
+# Expected: MSFT NetIncomeLoss results
 
-3. **Test semantic search:**
-   - Query: "tech company profits" → should find "NetIncomeLoss" filings
-   - Query: "AAPL earnings" → should find "Apple Inc Revenues"
+# Test 3: Semantic concept matching
+curl -X POST http://localhost:3001/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"query":"tech companies profit"}'
+# Expected: MSFT, AAPL, GOOGL NetIncomeLoss results
+```
+
+**Success criteria:**
+- ✅ Correct ticker matching (Apple → AAPL)
+- ✅ Synonym understanding (earnings ≈ profit ≈ NetIncomeLoss)
+- ✅ Similarity scores 0.7-0.9 for good matches
+- ✅ Latency <2 seconds for 275 docs
 
 ## Cost
 

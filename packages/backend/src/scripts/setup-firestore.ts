@@ -20,7 +20,7 @@
 
 import 'dotenv/config';
 import { loadSECFilings } from '../data/bigQueryLoader.js';
-import { generateMockEmbedding } from '../embeddings/mockEmbeddings.js';
+import { embedBatch } from '../embeddings/vertexEmbeddings.js';
 import { storeFilings, clearFilings, getFilingsCount } from '../db/firestore.js';
 
 async function main() {
@@ -52,12 +52,14 @@ async function main() {
     const loadDuration = Date.now() - startLoad;
     console.log(`✅ Loaded ${filings.length} filings in ${loadDuration}ms\n`);
 
-    // 3. Add mock embeddings
-    console.log('[4/5] Generating mock embeddings (768D)...');
+    // 3. Generate Vertex AI embeddings
+    console.log('[4/5] Generating Vertex AI embeddings (768D)...');
     const startEmbed = Date.now();
-    const filingsWithEmbeddings = filings.map((filing) => ({
+    const texts = filings.map((f) => f.searchable_text);
+    const embeddings = await embedBatch(texts);
+    const filingsWithEmbeddings = filings.map((filing, i) => ({
       ...filing,
-      embedding: generateMockEmbedding(filing.searchable_text),
+      embedding: embeddings[i],
     }));
     const embedDuration = Date.now() - startEmbed;
     console.log(`✅ Generated ${filingsWithEmbeddings.length} embeddings in ${embedDuration}ms\n`);

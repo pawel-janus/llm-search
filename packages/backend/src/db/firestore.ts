@@ -22,6 +22,12 @@ db.settings({ databaseId: DATABASE_ID });
 export { db };
 
 /**
+ * Firestore batch size limit.
+ * Max docs per batch to avoid "Transaction too big" error (10 MB limit).
+ */
+const BATCH_SIZE = 50;
+
+/**
  * SEC filing document in Firestore.
  */
 export interface FilingDocument {
@@ -61,7 +67,6 @@ export interface SearchResult {
 export async function storeFilings(
   filings: Array<Omit<FilingDocument, 'created_at'>>
 ): Promise<void> {
-  const BATCH_SIZE = 50; // Max docs per batch (avoid 10 MB limit)
   const collection = db.collection(COLLECTIONS.LLM_SEARCH_SEC_FILINGS);
 
   console.log(`[Firestore] Storing ${filings.length} filings in batches of ${BATCH_SIZE}...`);
@@ -73,7 +78,14 @@ export async function storeFilings(
     for (const filing of batchFilings) {
       const docRef = collection.doc(); // Auto-generate ID
       batch.set(docRef, {
-        ...filing,
+        ticker: filing.ticker,
+        name: filing.name,
+        tag: filing.tag,
+        value: filing.value,
+        period: filing.period,
+        filing_date: filing.filing_date,
+        searchable_text: filing.searchable_text,
+        embedding: admin.firestore.FieldValue.vector(filing.embedding), // Vector type!
         created_at: admin.firestore.Timestamp.now(),
       });
     }
@@ -109,6 +121,7 @@ export async function searchFilingsByVector(
     queryVector: queryEmbedding,
     limit,
     distanceMeasure: 'COSINE',
+    distanceResultField: 'distance', // Store distance in result
   });
 
   const snapshot = await vectorQuery.get();
@@ -122,7 +135,7 @@ export async function searchFilingsByVector(
 
     // Firestore returns distance (0 = identical, 2 = opposite)
     // Convert to similarity (1 = identical, 0 = opposite)
-    const distance = (doc as any)._distance || 0;
+    const distance = (data as any).distance || (doc as any)._distance || 0;
     const similarity = 1 - distance / 2;
 
     return {
@@ -141,20 +154,29 @@ export async function searchFilingsByVector(
 /**
  * Clear all filings from Firestore.
  *
- * WARNING: Deletes all documents in 'filings' collection.
+ * WARNING: Deletes all documents in collection.
+ * Processes in batches to avoid "Transaction too big" error.
  */
 export async function clearFilings(): Promise<void> {
   const collection = db.collection(COLLECTIONS.LLM_SEARCH_SEC_FILINGS);
   const snapshot = await collection.get();
 
-  console.log(`[Firestore] Deleting ${snapshot.docs.length} filings...`);
+  console.log(`[Firestore] Deleting ${snapshot.docs.length} filings in batches of ${BATCH_SIZE}...`);
 
-  const batch = db.batch();
-  snapshot.docs.forEach((doc) => {
-    batch.delete(doc.ref);
-  });
+  const docs = snapshot.docs;
+  for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    const batchDocs = docs.slice(i, i + BATCH_SIZE);
 
-  await batch.commit();
+    batchDocs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+    const progress = Math.min(i + BATCH_SIZE, docs.length);
+    console.log(`[Firestore] Deleted: ${progress}/${docs.length}`);
+  }
+
   console.log('[Firestore] All filings deleted');
 }
 

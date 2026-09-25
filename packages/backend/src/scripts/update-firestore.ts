@@ -21,7 +21,7 @@
 
 import 'dotenv/config';
 import { loadSECFilings } from '../data/bigQueryLoader.js';
-import { generateMockEmbedding } from '../embeddings/mockEmbeddings.js';
+import { embedBatch } from '../embeddings/vertexEmbeddings.js';
 import { storeFilings, getLastFilingDate, getFilingsCount } from '../db/firestore.js';
 
 async function main() {
@@ -61,12 +61,14 @@ async function main() {
 
     console.log(`✅ Found ${newFilings.length} new filings in ${loadDuration}ms\n`);
 
-    // 4. Add mock embeddings
+    // 4. Generate Vertex AI embeddings
     console.log('[4/4] Generating embeddings and storing...');
     const startEmbed = Date.now();
-    const filingsWithEmbeddings = newFilings.map((filing) => ({
+    const texts = newFilings.map((f) => f.searchable_text);
+    const embeddings = await embedBatch(texts);
+    const filingsWithEmbeddings = newFilings.map((filing, i) => ({
       ...filing,
-      embedding: generateMockEmbedding(filing.searchable_text),
+      embedding: embeddings[i],
     }));
 
     // Store to Firestore (append, not replace)

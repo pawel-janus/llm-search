@@ -11,16 +11,15 @@ Semantic search over SEC quarterly filings using Vertex AI embeddings and Firest
 - Frontend UI (React + Vite)
 - Cloud Run deployment (serverless, auto-scaling) - **LIVE**
 - BigQuery data loading (275 SEC quarterly filings from public dataset)
-- Firestore vector search (llm-pocs database, 768D embeddings, COSINE distance)
-- Vector index created (READY state, ~2-5 min build time)
-- Mock embeddings (deterministic 768D vectors for testing)
+- **Vertex AI embeddings** (text-embedding-004, 768D semantic vectors)
+- **Firestore vector search** (llm-pocs database, COSINE distance, similarity 0.82-0.83)
+- Vector index (READY state, auto-updates on new data)
 - Full refresh + incremental update scripts
+- Semantic search working ("Apple revenue" → AAPL results)
 
-**🚧 Next:**
-- Replace mock embeddings with real Vertex AI embeddings
-- Semantic search quality testing (tech terms, company names, metrics)
+**Status:** ✅ **100% complete.** Production-ready semantic search with Vertex AI embeddings and Firestore vector storage.
 
-**Status:** ~85% complete. Vector search infrastructure deployed and working. Mock embeddings validate flow, real embeddings next.
+**⚠️ CRITICAL:** Firestore vector search requires `FieldValue.vector()` wrapper when storing embeddings. Regular arrays will NOT be indexed!
 
 ## Tech Stack
 
