@@ -7,7 +7,7 @@ import fastifyStatic from '@fastify/static';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { SearchRequestSchema, SearchResponseSchema, type SearchRequest } from '@llm-search/shared';
-import { searchFilings } from './search/mockSearch.js';
+import { searchFilings } from './search/firestoreSearch.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,7 +45,7 @@ app.post<{ Body: SearchRequest }>('/api/search', async (request, reply) => {
   const { query } = parseResult.data;
 
   try {
-    // Mock search (later: Firestore vector search)
+    // Firestore vector search (with mock embeddings for now)
     const results = await searchFilings(query);
 
     const latency_ms = Date.now() - startTime;

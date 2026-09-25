@@ -1,5 +1,5 @@
 import { BigQuery } from '@google-cloud/bigquery';
-import { CIK_TO_TICKER } from '../config/cik-ticker-map.js';
+import { CIK_TO_TICKER, BASELINE_DATE } from '../config/bigquery.js';
 
 // Use your project as billing project for public dataset queries
 const bq = new BigQuery({
@@ -20,13 +20,45 @@ export interface SECFiling {
  * Load SEC quarterly filings from BigQuery public dataset.
  *
  * Dataset: bigquery-public-data.sec_quarterly_financials.quick_summary
- * Note: Dataset schema changed - using quick_summary instead of filing_tag
  *
- * @param limit Max number of filings to load (default: 1000)
+ * @param limit - Max number of filings to load (default: 1000)
+ * @param afterDate - Optional: Load only filings after this date (YYYY-MM-DD format, e.g. "2024-08-01")
+ *                    Used for incremental updates. If not provided, loads filings from 2020-01-01.
  * @returns Array of SEC filings
+ *
+ * @example
+ * // Full load (baseline from 2020-01-01)
+ * const allFilings = await loadSECFilings(1000);
+ *
+ * @example
+ * // Incremental load (only new filings after last update)
+ * const newFilings = await loadSECFilings(1000, "2024-08-01");
  */
-export async function loadSECFilings(limit: number = 1000): Promise<SECFiling[]> {
+export async function loadSECFilings(
+  limit: number = 1000,
+  afterDate?: string
+): Promise<SECFiling[]> {
   const ciks = Object.keys(CIK_TO_TICKER).join(', ');
+
+  // Determine date filter and sort order
+  let dateFilter: string;
+  let dateParam: number;
+  let orderBy: string;
+
+  if (afterDate) {
+    // Incremental mode: load only NEW filings after given date
+    dateParam = parseInt(afterDate.replace(/-/g, '')); // "2024-08-01" → 20240801
+    dateFilter = 'date_filed > @dateParam';
+    orderBy = 'ASC'; // Oldest new filings first
+    console.log(`[BigQuery] Loading new filings after ${afterDate} (limit: ${limit})...`);
+  } else {
+    // Full load mode: baseline from configured date
+    dateParam = BASELINE_DATE;
+    dateFilter = 'date_filed >= @dateParam';
+    orderBy = 'DESC'; // Newest filings first
+    const baselineFormatted = formatDate(BASELINE_DATE);
+    console.log(`[BigQuery] Loading SEC filings from ${baselineFormatted} (limit: ${limit})...`);
+  }
 
   const query = `
     SELECT
@@ -42,26 +74,28 @@ export async function loadSECFilings(limit: number = 1000): Promise<SECFiling[]>
     WHERE central_index_key IN (${ciks})
       AND measure_tag IN ('Revenues', 'NetIncomeLoss', 'Assets', 'Liabilities')
       AND fiscal_period_focus IN ('Q1', 'Q2', 'Q3', 'Q4', 'FY')
-      AND date_filed >= 20200101
+      AND ${dateFilter}
       AND units = 'USD'
-    ORDER BY date_filed DESC
+    ORDER BY date_filed ${orderBy}
     LIMIT @limit
   `;
 
   const options = {
     query,
-    params: { limit },
+    params: { dateParam, limit },
     location: 'US', // Public datasets are in multi-region US
     useLegacySql: false,
   };
 
-  console.log(`[BigQuery] Loading SEC filings (limit: ${limit})...`);
   const startTime = Date.now();
-
   const [rows] = await bq.query(options);
-
   const duration = Date.now() - startTime;
-  console.log(`[BigQuery] Loaded ${rows.length} filings in ${duration}ms`);
+
+  if (afterDate) {
+    console.log(`[BigQuery] Found ${rows.length} new filings in ${duration}ms`);
+  } else {
+    console.log(`[BigQuery] Loaded ${rows.length} filings in ${duration}ms`);
+  }
 
   return rows.map((row: any) => {
     const ticker = CIK_TO_TICKER[row.central_index_key] || 'UNKNOWN';
