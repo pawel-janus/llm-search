@@ -236,6 +236,20 @@ curl -X POST http://localhost:3001/api/search \
 
 ## Troubleshooting
 
+### Error: "5 NOT_FOUND" or "Collection not found"
+
+**Problem:** Firestore collection doesn't exist yet (setup script not run).
+
+**Solution:**
+```bash
+# Run setup script first
+npm run build:backend
+cd packages/backend
+node dist/scripts/setup-firestore.js
+```
+
+Then create vector index (Step 2) and retry search.
+
 ### Error: "The query requires an index"
 
 **Problem:** Vector index not created or not ready yet.
