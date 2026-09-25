@@ -2,8 +2,34 @@
 
 ## Prerequisites
 
-1. Firestore must be enabled in your GCP project
-2. Application Default Credentials (ADC) configured (see SETUP.md)
+### 1. Create dedicated Firestore database
+
+**Database:** `llm-pocs` (shared by all LLM POC #1-4)
+
+```bash
+# Enable Firestore API
+gcloud services enable firestore.googleapis.com \
+  --account=paweljanus.gcp@gmail.com \
+  --project=native-dev-506112
+
+# Create database
+gcloud firestore databases create \
+  --database=llm-pocs \
+  --location=europe-central2 \
+  --account=paweljanus.gcp@gmail.com \
+  --project=native-dev-506112
+
+# Verify (should show llm-pocs database)
+gcloud firestore databases list \
+  --account=paweljanus.gcp@gmail.com \
+  --project=native-dev-506112
+```
+
+**Note:** Separate from other project databases (e.g., `functions-firestore-auth`).
+
+### 2. Application Default Credentials (ADC)
+
+Configured with separate credentials file (see SETUP.md for details).
 
 ## Step 1: Load data to Firestore
 
@@ -26,7 +52,7 @@ node dist/scripts/setup-firestore.js
 - ⚠️ **DELETES ALL** existing filings from Firestore
 - Loads 275 SEC filings from BigQuery (full query)
 - Generates mock 768D embeddings for each filing
-- Stores to Firestore collection `filings`
+- Stores to Firestore collection `llm-search-sec-filings`
 
 **Cost:** ~$0.007 (275 texts × $0.025/1000 Vertex AI)  
 **Time:** ~5-10 minutes

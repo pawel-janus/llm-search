@@ -1,5 +1,5 @@
 import admin from 'firebase-admin';
-import { COLLECTIONS } from '../config/firestore.js';
+import { DATABASE_ID, COLLECTIONS } from '../config/firestore.js';
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT;
 
@@ -15,7 +15,9 @@ if (!admin.apps.length) {
   });
 }
 
+// Use dedicated database for LLM POCs (separate from other project databases)
 const db = admin.firestore();
+db.settings({ databaseId: DATABASE_ID });
 
 export { db };
 
@@ -51,25 +53,36 @@ export interface SearchResult {
 /**
  * Store filings to Firestore with embeddings.
  *
+ * Processes in batches to avoid Firestore "Transaction too big" error.
+ * Max batch size: 50 documents (with 768D embeddings = ~325 KB per batch).
+ *
  * @param filings - Array of filings with embeddings
  */
 export async function storeFilings(
   filings: Array<Omit<FilingDocument, 'created_at'>>
 ): Promise<void> {
-  const batch = db.batch();
+  const BATCH_SIZE = 50; // Max docs per batch (avoid 10 MB limit)
   const collection = db.collection(COLLECTIONS.LLM_SEARCH_SEC_FILINGS);
 
-  console.log(`[Firestore] Storing ${filings.length} filings...`);
+  console.log(`[Firestore] Storing ${filings.length} filings in batches of ${BATCH_SIZE}...`);
 
-  for (const filing of filings) {
-    const docRef = collection.doc(); // Auto-generate ID
-    batch.set(docRef, {
-      ...filing,
-      created_at: admin.firestore.Timestamp.now(),
-    });
+  for (let i = 0; i < filings.length; i += BATCH_SIZE) {
+    const batchFilings = filings.slice(i, i + BATCH_SIZE);
+    const batch = db.batch();
+
+    for (const filing of batchFilings) {
+      const docRef = collection.doc(); // Auto-generate ID
+      batch.set(docRef, {
+        ...filing,
+        created_at: admin.firestore.Timestamp.now(),
+      });
+    }
+
+    await batch.commit();
+    const progress = Math.min(i + BATCH_SIZE, filings.length);
+    console.log(`[Firestore] Progress: ${progress}/${filings.length}`);
   }
 
-  await batch.commit();
   console.log(`[Firestore] Stored ${filings.length} filings successfully`);
 }
 

@@ -1,11 +1,19 @@
 /**
- * Firestore configuration - collection names and constants.
+ * Firestore configuration - database ID, collection names, and constants.
  *
  * Collection naming convention: {poc-name}-{source}-{type}
  * - poc-name: POC identifier (llm-search, llm-rag, llm-agent, etc.)
  * - source: Data source (sec, iex, custom) - optional
  * - type: Data type (filings, prices, conversations, etc.)
  */
+
+/**
+ * Firestore database ID for all LLM POCs.
+ *
+ * Separate database from other project databases (e.g., functions-firestore-auth).
+ * All LLM POC-s (#1-4) share this database with namespaced collections.
+ */
+export const DATABASE_ID = 'llm-pocs';
 
 /**
  * Collection names for each POC.
