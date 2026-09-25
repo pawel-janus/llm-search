@@ -10,7 +10,7 @@ if (!projectId) {
 const ai = new GoogleGenAI({
   vertexai: true, // Enable Vertex AI integration
   project: projectId,
-  location: 'us-central1',
+  location: 'europe-west4', // Netherlands - closest to europe-central2 (Warsaw)
 });
 
 /**
