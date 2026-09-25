@@ -6,14 +6,14 @@ Semantic search over SEC quarterly filings using Vertex AI embeddings and Firest
 
 ## Features
 
-- ✅ **Backend API** (Fastify with mock data)
+- ✅ **Backend API** (Fastify with BigQuery data)
 - ✅ **Frontend UI** (React + Vite)
 - ✅ **Cloud Run deployment** (serverless, auto-scaling)
+- ✅ **BigQuery data loading** (275 SEC quarterly filings from public dataset)
 - 🚧 Vertex AI Text Embeddings API (768D vectors) - TODO
-- 🚧 BigQuery data loading (1000 SEC quarterly filings) - TODO
 - 🚧 Firestore vector search (cosine similarity) - TODO
 
-**Status:** Full-stack deployed with mock data. Next: Firestore + Vertex AI integration.
+**Status:** Full-stack deployed with BigQuery data. Next: Embeddings + Firestore vector search.
 
 ## Tech Stack
 
@@ -127,7 +127,7 @@ curl -X POST http://localhost:3001/api/search \
   -d '{"query":"Apple revenue 2024"}'
 ```
 
-**Current implementation:** Mock search with keyword matching (16 mock SEC filings)
+**Current implementation:** Keyword matching over real BigQuery data (275 SEC filings, cached in-memory)
 
 **Test UI:**
 
@@ -164,7 +164,8 @@ gcloud run deploy ${SERVICE_NAME} \
   --memory=512Mi \
   --cpu=1 \
   --min-instances=0 \
-  --max-instances=10
+  --max-instances=10 \
+  --set-env-vars=GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
 ```
 
 **Note:** Create Artifact Registry repository first if it doesn't exist:
@@ -175,6 +176,16 @@ gcloud artifacts repositories create ${REPOSITORY} \
   --location=${REGION} \
   --account=${ACCOUNT} \
   --project=${PROJECT_ID}
+```
+
+**Get service URL after deployment:**
+
+```bash
+gcloud run services describe ${SERVICE_NAME} \
+  --account=${ACCOUNT} \
+  --project=${PROJECT_ID} \
+  --region=${REGION} \
+  --format="value(status.url)"
 ```
 
 ## Deployment

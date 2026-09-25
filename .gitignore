@@ -33,3 +33,4 @@ firestore-debug.log
 
 # GCP
 service-account-key.json
+adc-private.json
