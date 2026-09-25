@@ -160,34 +160,16 @@ Firestore requires a vector index to perform `findNearest()` queries.
 ### Option B: gcloud CLI
 
 ```bash
-# Create index config file
-cat > firestore-index.json << 'EOF'
-{
-  "indexes": [
-    {
-      "collectionGroup": "filings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "embedding",
-          "vector": {
-            "dimension": 768,
-            "flat": {}
-          }
-        }
-      ]
-    }
-  ]
-}
-EOF
-
-# Create index
 gcloud firestore indexes composite create \
-  --field-config=embedding=VECTOR,768,COSINE \
-  --collection-group=llm-search-sec-filings \
   --project=native-dev-506112 \
+  --database=llm-pocs \
+  --collection-group=llm-search-sec-filings \
+  --query-scope=COLLECTION \
+  --field-config field-path=embedding,vector-config='{"dimension":"768","flat":{}}' \
   --account=paweljanus.gcp@gmail.com
 ```
+
+**Note:** If you get a "Missing vector index" error, Firestore provides the exact command in the error message. Use that command directly.
 
 ### Option C: Firebase CLI
 
